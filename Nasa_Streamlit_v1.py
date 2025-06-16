@@ -2,7 +2,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import sqlite3
 import pymysql
 import base64
 
@@ -37,7 +36,7 @@ with st.sidebar:
 # -------------------------------- PAGE 1: Introduction --------------------------------
 if page == "About Nasa Project":
     st.title(" NEO Data Analysis")
-    st.subheader(" A Streamlit App for Analysing Asteroids & to Explore Astronomical data.")
+    st.subheader(" A Streamlit app for analysing asteroids & to explore astronomical data.")
     st.write("""
     This project analyzes Asteroids,astronomical data month wise using an MYSQL database.
     It provides visualizations for Asteroid with highest Brightness, Asteroid Speed, count of hazardous vs non-hazardous asteroids
@@ -74,27 +73,27 @@ elif page=="SQL-Asteroids Data":
                       "16. Asteroids that came within 0.05 AU(astronomical distance)"
                       ],placeholder='Select an option...',index=None)
                if options == "1. No.of Times each asteroid has approached Earth(count)":
-                        cursor.execute('select id, count(distinct(id)) from asteroids group by 1')
+                        cursor.execute("select id As Asteroids, count(distinct(id)) as 'No.of Times asteroids reached earth' from asteroids group by 1")
                         result =  cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data) 
 
                elif options == "2. Average velocity of each asteroid over multiple approaches":
-                        cursor.execute('select neo_reference_id, AVG(relative_velocity_kmph) AS Avg_Veloicty FROM close_approach group by neo_reference_id')
+                        cursor.execute('select neo_reference_id as Asteroids, AVG(relative_velocity_kmph) AS Avg_Veloicty FROM close_approach group by neo_reference_id ORDER BY Avg_Veloicty desc')
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data) 
 
                elif options == "3. Top 10 fastest asteroids":
-                        cursor.execute('select distinct(relative_velocity_kmph),neo_reference_id AS Asteroid_ID FROM close_approach ORDER BY relative_velocity_kmph DESC LIMIT 10')
+                        cursor.execute('select distinct(neo_reference_id) AS Asteroid_ID,relative_velocity_kmph as Velocity  FROM close_approach ORDER BY relative_velocity_kmph DESC LIMIT 10')
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data) 
                elif options == "4. Potentially hazardous asteroids that have approached Earth more than 3 times":
-                        cursor.execute("SELECT a.name,ca.neo_reference_id, COUNT(*) as close_approach_count from nasa_db.close_approach as ca inner join nasa_db.asteroids as a on ca.neo_reference_id = a.id WHERE a.is_potentially_hazardous_asteroid = 0 AND orbiting_body = 'Earth'GROUP BY a.name,ca.neo_reference_id HAVING COUNT(*) > 3 ORDER BY close_approach_count DESC")
+                        cursor.execute("SELECT a.name as Name ,ca.neo_reference_id as ID, COUNT(*) as Close_Approach_Count from nasa_db.close_approach as ca inner join nasa_db.asteroids as a on ca.neo_reference_id = a.id WHERE a.is_potentially_hazardous_asteroid = 0 AND orbiting_body = 'Earth'GROUP BY a.name,ca.neo_reference_id HAVING COUNT(*) > 3 ORDER BY close_approach_count DESC")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
@@ -102,84 +101,84 @@ elif page=="SQL-Asteroids Data":
 
 
                elif options == "5. Month with the most asteroid approaches":
-                        cursor.execute('select neo_reference_id, AVG(relative_velocity_kmph) AS Avg_Veloicty FROM close_approach group by neo_reference_id')
+                        cursor.execute("SELECT DATE_FORMAT(close_approach_date, '%d') AS Month, COUNT(*) AS Approach_count FROM nasa_db.close_approach GROUP BY Month ORDER BY Month ASC")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data) 
 
                elif options == "6. Asteroid with the fastest ever approach speed":
-                        cursor.execute('select neo_reference_id, AVG(relative_velocity_kmph) AS Avg_Veloicty FROM close_approach group by neo_reference_id')
+                        cursor.execute('select neo_reference_id as Asteroid_Id, AVG(relative_velocity_kmph) AS Avg_Veloicty FROM close_approach group by neo_reference_id ORDER BY Avg_Veloicty DESC')
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data) 
                 
                elif options == "7. Asteroids by maximum estimated diameter (descending)":
-                        cursor.execute('select neo_reference_id, AVG(relative_velocity_kmph) AS Avg_Veloicty FROM close_approach group by neo_reference_id')
+                        cursor.execute('select ca.neo_reference_id as Asteroid_Id, a.estimated_diam_max_km AS Max_Diam from nasa_db.close_approach as ca inner join nasa_db.asteroids as a on ca.neo_reference_id =a.id group by neo_reference_id,estimated_diam_max_km ORDER BY estimated_diam_max_km DESC')
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)
                 
                elif options == "8. Asteroid whose closest approach is getting nearer over time":
-                        cursor.execute('select a.name,COUNT(c.neo_reference_id) AS approach_count FROM asteroids a JOIN close_approach c ON a.id = c.neo_reference_id GROUP BY a.name ORDER BY approach_count DESC')
+                        cursor.execute("SELECT a.name as Asteroids , c.close_approach_date as Approach_Date, c.miss_distance_km as 'Distance/KM' FROM  asteroids a JOIN close_approach c ON a.id = c.neo_reference_id WHERE c.orbiting_body = 'Earth' group by 1,2,3 ORDER BY  a.name, c.close_approach_date")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "9. Asteroids name, date & miss_distance of Asteroids closest approach to Earth.":
-                        cursor.execute("select a.name,ca.close_approach_date,ca.miss_distance_km FROM close_approach ca JOIN  asteroids a ON a.id = ca.neo_reference_id WHERE ca.orbiting_body = 'Earth'")
+                        cursor.execute("select a.name as Asteroid_Name,ca.close_approach_date as Date ,ca.miss_distance_km as 'Distance/KM' FROM close_approach ca JOIN  asteroids a ON a.id = ca.neo_reference_id WHERE ca.orbiting_body = 'Earth'")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "10. Names of asteroids that approached Earth with velocity > 50,000 km/h":
-                        cursor.execute("select DISTINCT a.name,ca.relative_velocity_kmph FROM close_approach ca JOIN asteroids a ON a.id = ca.neo_reference_id WHERE ca.orbiting_body = 'Earth'AND ca.relative_velocity_kmph*10000")
+                        cursor.execute("select DISTINCT a.name as Asteroid_Name,ca.relative_velocity_kmph as Velocity FROM close_approach ca JOIN asteroids a ON a.id = ca.neo_reference_id WHERE ca.orbiting_body = 'Earth'AND ca.relative_velocity_kmph*10000")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "11. Count of approaches happened per month":
-                        cursor.execute("SELECT DATE_FORMAT(close_approach_date, '%Y-%d') as ym, count(*) FROM close_approach GROUP BY ym ORDER BY ym")
+                        cursor.execute("SELECT DATE_FORMAT(close_approach_date, '%Y-%d') as Month, count(*) as Approach_Count FROM close_approach GROUP BY Month ORDER BY Month")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "12. Asteroid with the highest brightness":
-                        cursor.execute('SELECT name,  absolute_magnitude_h FROM asteroids ORDER BY  absolute_magnitude_h ASC LIMIT x`1')
+                        cursor.execute("SELECT name as Asteroid_Name,  Absolute_Magnitude_h FROM asteroids ORDER BY  absolute_magnitude_h ASC LIMIT 1")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "13. Number of hazardous asteroids":
-                        cursor.execute('select id,count(id) as cnt_Hazardous_Asteroid from  nasa_db.asteroids where is_potentially_hazardous_asteroid =1 group by 1')
+                        cursor.execute('select id as Asteroid_Id,count(id) as Hazardous_Asteroid_Count from  nasa_db.asteroids where is_potentially_hazardous_asteroid =1 group by 1')
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "14. Number of non-hazardous asteroids":
-                        cursor.execute('select id,count(id) as cnt_Non_Hazardous_Asteroid from  nasa_db.asteroids where is_potentially_hazardous_asteroid =0 group by 1')
+                        cursor.execute("select id as Asteroid_Id,count(id) as 'Non-Hazardous_Asteroid_Count' from  nasa_db.asteroids where is_potentially_hazardous_asteroid =0 group by 1")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "15. Asteroids,close_approach_date and distance that passed closer than the Moon":
-                        cursor.execute("SELECT  a.name AS asteroid_name, ca.close_approach_date, ca.miss_distance_km FROM  close_approach ca JOIN  asteroids a ON a.id = ca.neo_reference_id WHERE ca.orbiting_body = 'Earth' AND ca.miss_distance_lunar<1 ORDER BY ca.miss_distance_km asc")
+                        cursor.execute("SELECT  distinct(a.name) AS Asteroid_Name, ca.Close_Approach_Date, ca.miss_distance_km as Distance FROM  close_approach ca JOIN  asteroids a ON a.id = ca.neo_reference_id WHERE ca.orbiting_body = 'Earth' AND ca.miss_distance_lunar<1 ORDER BY ca.miss_distance_km asc")
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
                         st.dataframe(data)  
                 
                elif options == "16. Asteroids that came within 0.05 AU(astronomical distance)":
-                        cursor.execute('Select neo_reference_id,astronomical from close_approach where astronomical<=0.05')
+                        cursor.execute('Select neo_reference_id as Asteroid_Id,Astronomical from close_approach where astronomical<=0.05')
                         result = cursor.fetchall()
                         columns = [desc[0] for desc in cursor.description]
                         data = pd.DataFrame(result,columns=columns)
